@@ -12,11 +12,6 @@ from duwu.sampling.cfg import cfg_wrapper, region_cfg_wrapper, layer_cfg_wrapper
 from duwu.sampling.k_diffusion_euler import sample_euler_ancestral
 from duwu.modules.text_encoders import ConcatTextEncoders
 from duwu.sampling.k_diffusion_wrapper import DiscreteEpsDDPMDenoiser
-from duwu.modules.attention import (
-    CombinedAttnProcessor,
-    RegionAttnProcessor,
-    LayerAttnProcessor,
-)
 
 
 @torch.no_grad()
@@ -28,9 +23,6 @@ def diffusion_sampling(
     train_scheduler: EulerDiscreteScheduler,
     prompt: str | list[str] | list[list[str]],
     neg_prompt: str | list[str],
-    bboxes: list[list[tuple[float, float, float, float]]] | None = None,
-    pad_to_n_bboxes: int | None = None,  # for padding
-    adjacency: list[list[list[int]]] | None = None,
     num_steps: int = 16,
     sample_scheduler: EulerDiscreteScheduler | None = None,
     get_sigma_func: Callable[[int], list[float]] | None = None,
@@ -44,10 +36,6 @@ def diffusion_sampling(
     vae_std: float | None = None,
     vae_mean: float | None = None,
     internal_sampling_func: Callable | None = None,
-    use_region_attn: bool = False,
-    use_layer_attn: bool = False,
-    use_flex_attention_for_region: bool = False,
-    use_flex_attention_for_layer: bool = True,
 ):
     pl.seed_everything(seed)
 
@@ -79,89 +67,15 @@ def diffusion_sampling(
 
     num_layers = num_samples
 
-    if bboxes is not None:
-        bboxes = list(bboxes)
-        if not isinstance(bboxes[0], torch.Tensor):
-            bboxes = [torch.tensor(bboxes_per_image) for bboxes_per_image in bboxes]
-        bboxes = [bboxes_per_image.to(reference_param) for bboxes_per_image in bboxes]
-        bboxes = truncate_or_pad_to_length(
-            bboxes, num_samples, padding_mode=padding_mode
-        )
-
-    if use_layer_attn and bboxes is not None and adjacency is not None:
-        adjacency = list(adjacency)
-        adjacency = truncate_or_pad_to_length(
-            adjacency, num_samples, padding_mode=padding_mode
-        )
-        for bboxes_per_image, prompt_per_image in zip(bboxes, prompt):
-            assert len(bboxes_per_image) == len(prompt_per_image)
-        num_layers = sum([len(bboxes_per_image) for bboxes_per_image in bboxes])
-
-        cross_attn_processor = (
-            RegionAttnProcessor(use_flex_attention=use_flex_attention_for_region)
-            if use_region_attn
-            else AttnProcessor2_0()
-        )
-        attn_processor = CombinedAttnProcessor(
-            self_attn_processor=LayerAttnProcessor(
-                use_flex_attention=use_flex_attention_for_layer
-            ),
-            cross_attn_processor=cross_attn_processor,
-        )
-        unet.set_attn_processor(attn_processor)
-        n_unet_levels = len(unet.down_blocks)
-        cfg_fn = layer_cfg_wrapper(
-            prompt=prompt,
-            neg_prompt=neg_prompt,
-            bboxes=bboxes,
-            adjacency=adjacency,
-            pad_to_n_bboxes=pad_to_n_bboxes,
-            width=width,
-            height=height,
-            unet=model_wrapper,
-            te=te,
-            cfg=cfg_scale,
-            n_unet_levels=n_unet_levels,
-            with_region_attention=use_region_attn,
-            use_flex_attention_for_region=use_flex_attention_for_region,
-            use_flex_attention_for_layer=use_flex_attention_for_layer,
-        )
-    elif use_region_attn and bboxes is not None:
-        for bboxes_per_image, prompt_per_image in zip(bboxes, prompt):
-            assert len(bboxes_per_image) == len(prompt_per_image)
-
-        attn_processor = CombinedAttnProcessor(
-            self_attn_processor=AttnProcessor2_0(),
-            cross_attn_processor=RegionAttnProcessor(
-                use_flex_attention=use_flex_attention_for_region
-            ),
-        )
-        unet.set_attn_processor(attn_processor)
-        # no downsampling at last down block
-        n_unet_levels = len(unet.down_blocks)
-        cfg_fn = region_cfg_wrapper(
-            prompt=prompt,
-            neg_prompt=neg_prompt,
-            bboxes=bboxes,
-            pad_to_n_bboxes=pad_to_n_bboxes,
-            width=width,
-            height=height,
-            unet=model_wrapper,
-            te=te,
-            cfg=cfg_scale,
-            n_unet_levels=n_unet_levels,
-            use_flex_attention=use_flex_attention_for_region,
-        )
-    else:
-        cfg_fn = cfg_wrapper(
-            prompt=prompt,
-            neg_prompt=neg_prompt,
-            width=width,
-            height=height,
-            unet=model_wrapper,
-            te=te,
-            cfg=cfg_scale,
-        )
+    cfg_fn = cfg_wrapper(
+        prompt=prompt,
+        neg_prompt=neg_prompt,
+        width=width,
+        height=height,
+        unet=model_wrapper,
+        te=te,
+        cfg=cfg_scale,
+    )
     # for laplace scheduler sigmas[0] would be too large
     sample_scheduler = sample_scheduler or train_scheduler
     # print(train_scheduler.sigmas)
