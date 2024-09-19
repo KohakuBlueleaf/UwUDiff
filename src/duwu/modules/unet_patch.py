@@ -57,20 +57,6 @@ class UNet2DFromScratch(UNet2DConditionModel):
         return model
 
 
-class UNet2DConditionModelSetAttnProcessor(UNet2DConditionModel):
-
-    @classmethod
-    def from_pretrained(cls, *args, attn_processor=None, **kwargs):
-        # Create the instance
-        model = super().from_pretrained(*args, **kwargs)
-
-        # Call set_attn_processor if attn_processor is provided
-        if attn_processor is not None:
-            model.set_attn_processor(attn_processor)
-
-        return model
-
-
 if __name__ == "__main__":
 
     unet = UNet2DFromScratch.from_config(

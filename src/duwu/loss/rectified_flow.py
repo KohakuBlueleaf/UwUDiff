@@ -4,7 +4,6 @@ import torch
 import torch.nn as nn
 
 from duwu.loss.diffusion import DiffusionLoss, DiffusionLossAuxOutput
-from duwu.loss.t_distributions import Exp, Cosh
 
 
 class RectifiedFlowLoss(DiffusionLoss):
@@ -39,20 +38,6 @@ class RectifiedFlowLoss(DiffusionLoss):
             sigmas = time / (1 - time).to(ref_params)
             # inverse_sigma_min = 1 / scheduler_sigma_max
             # sigmas = time / torch.maximum((1 - time), inverse_sigma_min)
-            timesteps = self.sigma_to_timestep(sigmas)
-            return timesteps, sigmas
-
-        elif self.time_sampling_type == "exp":
-            exp_dist = Exp(**self.time_sampling_kwargs)
-            time = exp_dist.sample(bs=batch_size).to(ref_params) * max_time
-            sigmas = time / (1 - time)
-            timesteps = self.sigma_to_timestep(sigmas)
-            return timesteps, sigmas
-
-        elif self.time_sampling_type == "cosh":
-            cosh_dist = Cosh(**self.time_sampling_kwargs)
-            time = cosh_dist.sample(bs=batch_size).to(ref_params) * max_time
-            sigmas = time / (1 - time)
             timesteps = self.sigma_to_timestep(sigmas)
             return timesteps, sigmas
 

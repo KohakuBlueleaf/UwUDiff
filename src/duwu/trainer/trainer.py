@@ -3,7 +3,6 @@ import toml
 from typing import Any
 from collections.abc import Iterator
 from omegaconf import DictConfig
-from hydra.utils import instantiate
 
 import torch
 import torch.nn as nn
@@ -17,7 +16,6 @@ from duwu.utils import instantiate_any
 from duwu.utils.aggregation import aggregate_embeddings
 from duwu.loader import load_any
 from duwu.modules.text_encoders import BaseTextEncoder
-from duwu.modules.attn_masks import convert_mask_dict, convert_layer_attn_meta_dict
 
 
 class BaseTrainer(pl.LightningModule):
@@ -118,9 +116,6 @@ class DMTrainer(BaseTrainer):
         use_warm_up: bool = True,
         warm_up_period: int = 1000,
         loss_config: DictConfig | dict | None = None,
-        # This is not compatible with dynamic batch size
-        use_flex_attention_for_region: bool = False,
-        use_flex_attention_for_layer: bool = False,
     ):
         super(DMTrainer, self).__init__(
             *args,
@@ -185,13 +180,6 @@ class DMTrainer(BaseTrainer):
             self.loss = instantiate_any(loss_config)
 
         self.n_diffusion_time_steps = self.loss.n_diffusion_time_steps
-
-        # for region and layer attention
-        self.use_flex_attention_for_region = use_flex_attention_for_region
-        self.use_flex_attention_for_layer = use_flex_attention_for_layer
-        # https://github.com/pytorch/pytorch/issues/104674
-        if self.use_flex_attention_for_region or self.use_flex_attention_for_layer:
-            torch._dynamo.config.optimize_ddp = False
 
     def merge_lycoris(self):
         # For inference, load ckpt than merge lycoris back to unet
@@ -269,47 +257,7 @@ class DMTrainer(BaseTrainer):
                 ctx = normed_embedding
             else:
                 ctx = embedding
-
-        # Convert masks
-        if "region_mask_dict" in cross_attn_kwargs:
-            if cross_attn_kwargs["region_mask_dict"] is None:
-                cross_attn_kwargs.pop("region_mask_dict")
-            else:
-                sequence_length = ctx.size(1)
-                cross_attn_kwargs["region_mask_dict"] = convert_mask_dict(
-                    cross_attn_kwargs["region_mask_dict"],
-                    sequence_length=sequence_length,
-                    encoder_attn_mask=attn_mask,
-                    use_flex_attention=self.use_flex_attention_for_region,
-                )
-
-        if "layer_attn_meta_dict" in cross_attn_kwargs:
-            if cross_attn_kwargs["layer_attn_meta_dict"] is None:
-                cross_attn_kwargs.pop("layer_attn_meta_dict")
-            else:
-                cross_attn_kwargs["layer_attn_meta_dict"] = (
-                    convert_layer_attn_meta_dict(
-                        cross_attn_kwargs["layer_attn_meta_dict"],
-                        use_flex_attention=self.use_flex_attention_for_layer,
-                    )
-                )
-
-        # Aggregate embeddings
-        if "region_mask_dict" in cross_attn_kwargs:
-            n_elements_per_image = cross_attn_kwargs["n_elements_per_image"]
-            ctx = aggregate_embeddings(ctx, n_elements_per_image, mode="concat")
-            if attn_mask is not None:
-                attn_mask = aggregate_embeddings(attn_mask, n_elements_per_image)
-            if "layer_attn_meta_dict" in cross_attn_kwargs:
-                ctx = ctx.repeat_interleave(n_elements_per_image, dim=0)
-                if attn_mask is not None:
-                    attn_mask = attn_mask.repeat_interleave(n_elements_per_image, dim=0)
-            elif pooled_embedding is not None:
-                pooled_embedding = aggregate_embeddings(
-                    pooled_embedding, n_elements_per_image, mode="first"
-                )
         added_cond["text_embeds"] = pooled_embedding
-        # print(f"rank {self.global_rank}: {ctx.size()}")
         return x, ctx, attn_mask, added_cond, cross_attn_kwargs
 
     def training_step(self, batch, idx):
