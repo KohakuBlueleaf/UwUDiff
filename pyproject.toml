@@ -13,7 +13,7 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
 ]
 dependencies = [
-    "torch",  # We need Flex attention
+    "torch",
     "torchvision",  # For dataset transform
     "torchdata",    # For stateful dataloader
     "lightning",

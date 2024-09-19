@@ -3,12 +3,11 @@ from typing import Literal
 
 import torch
 import lightning.pytorch as pl
-from diffusers.models.attention_processor import AttnProcessor2_0
 from diffusers import UNet2DConditionModel, AutoencoderKL, EulerDiscreteScheduler
 
 from duwu.utils import truncate_or_pad_to_length
 from duwu.data.utils import vae_image_postprocess
-from duwu.sampling.cfg import cfg_wrapper, region_cfg_wrapper, layer_cfg_wrapper
+from duwu.sampling.cfg import cfg_wrapper
 from duwu.sampling.k_diffusion_euler import sample_euler_ancestral
 from duwu.modules.text_encoders import ConcatTextEncoders
 from duwu.sampling.k_diffusion_wrapper import DiscreteEpsDDPMDenoiser

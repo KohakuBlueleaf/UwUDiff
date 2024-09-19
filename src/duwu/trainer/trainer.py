@@ -116,9 +116,6 @@ class DMTrainer(BaseTrainer):
         use_warm_up: bool = True,
         warm_up_period: int = 1000,
         loss_config: DictConfig | dict | None = None,
-        # This is not compatible with dynamic batch size
-        use_flex_attention_for_region: bool = False,
-        use_flex_attention_for_layer: bool = False,
     ):
         super(DMTrainer, self).__init__(
             *args,
@@ -183,13 +180,6 @@ class DMTrainer(BaseTrainer):
             self.loss = instantiate_any(loss_config)
 
         self.n_diffusion_time_steps = self.loss.n_diffusion_time_steps
-
-        # for region and layer attention
-        self.use_flex_attention_for_region = use_flex_attention_for_region
-        self.use_flex_attention_for_layer = use_flex_attention_for_layer
-        # https://github.com/pytorch/pytorch/issues/104674
-        if self.use_flex_attention_for_region or self.use_flex_attention_for_layer:
-            torch._dynamo.config.optimize_ddp = False
 
     def merge_lycoris(self):
         # For inference, load ckpt than merge lycoris back to unet
