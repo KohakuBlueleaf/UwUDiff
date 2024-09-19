@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "duwu"
+version = "0.1.0"
+description = "UwU Diffusion training codebase."
+readme = "README.md"
+license = { file="LICENSE" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+]
+dependencies = [
+    "torch",  # We need Flex attention
+    "torchvision",  # For dataset transform
+    "torchdata",    # For stateful dataloader
+    "lightning",
+    "einops",       # For rearrange
+    "Pillow",
+    "wandb",        # For Wandb logger
+    "diffusers",
+    "transformers",
+    "warmup_scheduler",
+    "omegaconf",
+    "hydra-core",
+    "k_diffusion",  # For sampling
+    "matplotlib",   # For validation plot callback
+    "datasets",     # For validation
+    "torchmetrics[image]",   # For metrics
+    "toml",
+    "lycoris-lora>=3.0.1.dev10"
+]
+
+[project.optional-dependencies]
+t5 = [
+    "sentencepiece",
+]
+
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true

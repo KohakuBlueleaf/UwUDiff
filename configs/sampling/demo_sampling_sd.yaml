@@ -1,0 +1,97 @@
+save_dir: ./sampling_output/sd-cfg7/
+
+
+sampling_func:
+
+  _target_: duwu.sampling.diffusion_sampling
+  _partial_: true
+
+  internal_sampling_func:
+    _target_: duwu.sampling.sample_euler_ancestral
+    _partial_: true
+    eta: 0.0
+
+  prompt:
+    - "a cat sitting on a table"
+    - "a photograph of an astronaut riding a horse"
+    - "dogs with pumpkins"
+    - "A priest holds a chalice aloft while another figure kneeling figure kneels on the floor, set against a backdrop of architectural details and ornamentation within what appears to be a religious setting."
+  neg_prompt:
+    - ""
+    - ""
+    - ""
+    - ""
+  num_samples: 8
+  padding_mode: cycling
+  cfg_scale: 7
+  seed: 1215
+  num_steps: 24
+  width: 512
+  height: 512
+  # rescale: true
+  # width: 256
+  # height: 256
+
+  train_scheduler:
+    _target_: diffusers.EulerDiscreteScheduler.from_pretrained
+    pretrained_model_name_or_path: CompVis/stable-diffusion-v1-4
+    subfolder: scheduler
+    # pretrained_model_name_or_path: KBlueLeaf/Laplace-scheduler
+    # subfolder: laplace-1_0-cut-head
+
+  # sample_sigmas:
+  #   _target_: duwu.sampling.rf.get_sigmas_for_rf
+  #   num_steps: 24
+  #   max_sigma: 14
+
+  # sample_scheduler:
+  #   _target_: diffusers.EulerDiscreteScheduler.from_pretrained
+  #   pretrained_model_name_or_path: KBlueLeaf/Laplace-scheduler
+  #   subfolder: laplace-1_0-cut-head
+  #   # pretrained_model_name_or_path: stabilityai/stable-diffusion-xl-base-1.0
+  #   # subfolder: scheduler
+
+  # vae_std: 13.3
+  # vae_mean: 1.125
+
+
+model_config:
+
+  unet:
+    _target_: diffusers.UNet2DConditionModel.from_pretrained
+    _load_config_:
+      device: cuda
+      precision: torch.float16
+      to_freeze: true
+    pretrained_model_name_or_path: CompVis/stable-diffusion-v1-4
+    subfolder: unet
+
+  te:
+    _target_: duwu.modules.text_encoders.ConcatTextEncoders
+    _load_config_:
+      device: cuda
+      precision: torch.float16
+      to_freeze: true
+    tokenizers:
+    - openai/clip-vit-large-patch14
+    text_model_and_configs:
+    - 
+      - _target_: transformers.CLIPTextModel.from_pretrained
+        pretrained_model_name_or_path: CompVis/stable-diffusion-v1-4
+        subfolder: text_encoder
+      - disable_autocast: false
+        concat_bucket: 0
+        use_pooled: false
+        need_mask: false
+        layer_idx: -1
+    zero_for_padding: false
+    use_normed_ctx: true # for stable-diffusion 1.x/2.x
+
+  vae:
+    _target_: diffusers.AutoencoderKL.from_pretrained
+    _load_config_:
+      device: cuda
+      precision: torch.float16
+      to_freeze: true
+    pretrained_model_name_or_path: CompVis/stable-diffusion-v1-4
+    subfolder: vae

@@ -1,0 +1,46 @@
+model_config:
+
+  scheduler:
+    _target_: diffusers.EulerDiscreteScheduler.from_pretrained
+    pretrained_model_name_or_path: CompVis/stable-diffusion-v1-4
+    subfolder: scheduler
+
+  unet:
+    _target_: diffusers.UNet2DConditionModel.from_pretrained
+    _load_config_:
+      device: cuda
+      precision: torch.float16
+      to_freeze: true
+    pretrained_model_name_or_path: bdsqlsz/stable-diffusion-v1-5
+    subfolder: unet
+  
+  te:
+    _target_: duwu.modules.text_encoders.ConcatTextEncoders
+    _load_config_:
+      device: cuda
+      precision: torch.float16
+      to_freeze: true
+    tokenizers:
+    - openai/clip-vit-large-patch14
+    - laion/CLIP-ViT-bigG-14-laion2B-39B-b160k
+    text_model_and_configs:
+    - 
+      - _target_: transformers.CLIPTextModel.from_pretrained
+        pretrained_model_name_or_path: bdsqlsz/stable-diffusion-v1-5
+        subfolder: text_encoder
+      - disable_autocast: false
+        concat_bucket: 0
+        use_pooled: false
+        need_mask: false
+        layer_idx: -1
+    zero_for_padding: false
+    use_normed_ctx: true # for stable-diffusion 1.x/2.x
+  
+  vae:
+    _target_: diffusers.AutoencoderKL.from_pretrained
+    _load_config_:
+      device: cuda
+      precision: torch.float16
+      to_freeze: true
+    pretrained_model_name_or_path: bdsqlsz/stable-diffusion-v1-5
+    subfolder: vae

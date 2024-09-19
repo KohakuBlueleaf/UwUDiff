@@ -1,0 +1,117 @@
+seed: 1215
+unet_gradient_checkpointing: true
+
+lightning_config:
+
+  # devices: 4
+  # strategy: ddp
+  # use_distributed_sampler: true
+
+  log_every_n_steps: 10
+  max_steps: 1000
+  precision: bf16-mixed
+  gradient_clip_val: 1.0
+  
+  callbacks:
+    - _target_: lightning.pytorch.callbacks.ModelCheckpoint
+      save_top_k: 2
+      mode: max
+      monitor: step
+      every_n_epochs: 1
+  
+  fast_dev_run: false
+
+
+data:
+  
+  _target_: duwu.data.TrainDataModule
+  _recursive_: false
+
+  dataset_config:
+    _target_: duwu.data.DummyDataset
+    # Same vram as [3, 1024, 1024], ~ 28G, if 16-true, bs 2
+    # However if [3, 1024, 1024] with bf16-mixed, bs 16, we get OOM
+    sample_size: [3, 256, 256]
+    n_samples: 128
+
+  dataloader_config:
+    batch_size: 8
+    num_workers: 0
+
+trainer:
+
+  _target_: duwu.trainer.DMTrainer
+
+  # Keep model_config as dictionary
+  _recursive_: false
+
+  lr: 1.0e-06
+  # optimizer: lion_pytorch.Lion
+  optimizer: torch.optim.AdamW
+  opt_config:
+    weight_decay: 0.01
+    betas:
+    - 0.9
+    - 0.999
+  use_warm_up: false
+  warm_up_period: 100
+  lycoris_config: "./configs/lycoris/sdxl-diffusers.toml"
+
+  loss_config:
+
+    _target_: duwu.loss.DiffusionLoss
+
+    scheduler:
+      _target_: diffusers.EulerDiscreteScheduler.from_pretrained
+      pretrained_model_name_or_path: stabilityai/stable-diffusion-xl-base-1.0
+      subfolder: scheduler
+
+    # target_type: sample
+    use_snr_weight: true
+    use_debiased_estimation: true
+  
+  model_config:
+  
+    unet:
+      _target_: duwu.modules.unet_patch.UNet2DFromScratch.from_config
+      _load_config_:
+        # we get nan loss if loaded with fp16 and trained with AdamW
+        precision: torch.float32
+      config: stabilityai/stable-diffusion-xl-base-1.0
+      subfolder: unet
+  
+    te:
+      _target_: duwu.modules.text_encoders.ConcatTextEncoders
+      _load_config_:
+        precision: torch.float16
+        to_freeze: true
+      tokenizers:
+      - openai/clip-vit-large-patch14
+      - laion/CLIP-ViT-bigG-14-laion2B-39B-b160k
+      text_model_and_configs:
+      - 
+        - _target_: transformers.CLIPTextModel.from_pretrained
+          pretrained_model_name_or_path: stabilityai/stable-diffusion-xl-base-1.0
+          subfolder: text_encoder
+        - disable_autocast: false
+          concat_bucket: 0
+          use_pooled: false
+          need_mask: false
+          layer_idx: -2
+      - 
+        - _target_: transformers.CLIPTextModel.from_pretrained
+          pretrained_model_name_or_path: stabilityai/stable-diffusion-xl-base-1.0
+          subfolder: text_encoder_2
+        - disable_autocast: false
+          concat_bucket: 0
+          use_pooled: true
+          need_mask: false
+          layer_idx: -2
+      zero_for_padding: false
+  
+    vae:
+      _target_: diffusers.AutoencoderKL.from_pretrained
+      _load_config_:
+        precision: torch.float16
+        to_freeze: true
+      pretrained_model_name_or_path: madebyollin/sdxl-vae-fp16-fix

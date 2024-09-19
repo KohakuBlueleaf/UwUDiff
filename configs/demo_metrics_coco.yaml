@@ -1,0 +1,68 @@
+# generated_image_dir: sampling_output/sdxl/
+generated_image_dir: sampling_output/coco-val_nsteps=24/sdxl-coco2017
+
+metrics:
+  # - name: CLIP score
+  #   metric_func:
+  #     _target_: duwu.metrics.compute_clip_score
+  #     _partial_: true
+  #     model_name_or_path: apple/DFN5B-CLIP-ViT-H-14-378
+  #     batch_size: 128
+  #     # Set to True because tensor is in range [0, 1] after T.ToTensor()
+  #     normalize: true
+  #   generated_dataset_func:
+  #     _target_: duwu.data.text_image_local.LocalTextImageDataset
+  #     _partial_: true
+  #     image_transform:
+  #       _target_: torchvision.transforms.Compose
+  #       transforms:
+  #         - _target_: torchvision.transforms.Resize
+  #           size: [378, 378]
+  #         - _target_: torchvision.transforms.ToTensor
+
+  - name: FID
+    metric_func:
+      _target_: duwu.metrics.compute_fid
+      _partial_: true
+      batch_size: 1024
+      normalize: true
+    generated_dataset_func:
+      _target_: duwu.data.text_image_local.LocalImageDataset
+      _partial_: true
+      image_transform:
+        _target_: torchvision.transforms.Compose
+        transforms:
+          - _target_: torchvision.transforms.Resize
+            size: [299, 299]
+          - _target_: torchvision.transforms.ToTensor
+    ref_dataset:
+      _target_: duwu.data.text_image_local.LocalImageDatasetFromFolder
+      image_dir: val2014/
+      # _target_: duwu.data.hf_dataset.HfImageDataset
+      # hf_dataset:
+      #   _target_: datasets.load_dataset
+      #   path: rafaelpadilla/coco2017
+      #   split: val
+        # path: stasstaf/MS-COCO-validation 
+        # split: test
+        # path: nlphuji/mscoco_2014_5k_test_image_text_retrieval
+        # split: test
+      image_transform:
+        _target_: torchvision.transforms.Compose
+        transforms:
+          - _target_: torchvision.transforms.Resize
+          # - _target_: duwu.data.utils.BicubicResize
+            size: 299
+            # size: [299, 299]
+          - _target_: torchvision.transforms.CenterCrop
+            size: 299
+          - _target_: torchvision.transforms.ToTensor
+    # ref_dataset:
+    #   _target_: duwu.data.text_image_local.LocalImageDatasetFromFolder
+    #   image_dir: /mnt/datasets/cc12m_00002/
+    #   image_transform:
+    #     _target_: torchvision.transforms.Compose
+    #     transforms:
+    #       - _target_: torchvision.transforms.Resize
+    #         size: [299, 299]
+    #       - _target_: torchvision.transforms.ToTensor

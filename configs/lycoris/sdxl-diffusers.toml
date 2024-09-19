@@ -1,0 +1,27 @@
+[config]
+    linear_dim=4
+    linear_alpha=1
+    conv_dim=4
+    conv_alpha=1
+    algo="lora"
+    use_tucker=true
+    train_norm=true
+
+[preset]
+    # 1x1 conv will be seen as linear, not conv
+    enable_conv = false
+    # An example for use different algo/settings in "full" preset
+    target_module = [
+        "Transformer2DModel", 
+    ]
+    target_name = []
+
+    [preset.module_algo_map.Attention]  # Attention Layer in UNet (self attn also use this class)
+        algo = "lokr"
+        factor = 64                     # Try to fit the head dim (doesn't have special effect)
+        full_matrix = true
+    
+    [preset.module_algo_map.FeedForward]# MLP Layer in UNet
+        algo = "lokr"
+        factor = 6
+        full_matrix = true

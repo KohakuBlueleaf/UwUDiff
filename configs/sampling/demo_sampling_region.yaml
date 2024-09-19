@@ -1,0 +1,124 @@
+save_dir: ./sampling_output/sdxl-region-cfg6/
+# save_dir: ./sampling_output/3bw72n5ynm-epoch=4-step=9378
+
+
+sampling_func:
+
+  _target_: duwu.sampling.diffusion_sampling
+  _partial_: true
+
+  use_region_attn: true
+
+  internal_sampling_func:
+    _target_: duwu.sampling.sample_euler_ancestral
+    # _target_: duwu.sampling.sample_dpm2
+    _partial_: true
+    eta: 0.0
+    # single_call: false
+
+  prompt:
+    - - A photograph of an astronaut riding a horse through a dense forest, with sunlight filtering through the trees.
+      - The horse is a majestic brown mare with a flowing mane, galloping confidently over the leafy ground.
+    - - A photograph of a tiny elephant balancing on a tightrope strung between two skyscrapers.
+      - The skyscrapers are towering, their steel frames dotted with illuminated windows, stretching high into the cloudy sky. 
+      - The elephant is wearing a bright red circus hat, carefully stepping across the thin wire above the city.
+      - This is a desert landscape with a long river, flowing through the trees and grassy meadows.
+  bboxes:
+    - - [0, 0, 1, 1]
+      - [0.3, 0.5, 0.7, 1]
+    - - [0, 0, 1, 1]
+      - [0, 0, 1, 0.5]
+      - [0.5, 0.5, 1, 1]
+      - [0, 0.5, 1, 1]
+  neg_prompt:
+    - ""
+    - ""
+  num_samples: 8
+  padding_mode: cycling
+  cfg_scale: 6
+  seed: 1215
+  # num_steps: 4
+  num_steps: 24
+  width: 1024
+  height: 1024
+
+  train_scheduler:
+    _target_: diffusers.EulerDiscreteScheduler.from_pretrained
+    pretrained_model_name_or_path: stabilityai/stable-diffusion-xl-base-1.0
+    subfolder: scheduler
+    # pretrained_model_name_or_path: KBlueLeaf/Laplace-scheduler
+    # subfolder: laplace-1_0-cut-head
+
+  # get_sigma_func:
+  #   _target_: duwu.sampling.get_sigmas.get_sigmas_for_rf
+  #   _partial_: true
+  #   max_sigma: 14.6146
+  #   time_disc_func:
+  #     _target_: duwu.sampling.get_sigmas.sigmoid_time_scale
+  #     _partial_: true
+  #     rho: 10
+
+  # sample_scheduler:
+  #   _target_: diffusers.EulerDiscreteScheduler.from_pretrained
+  #   pretrained_model_name_or_path: KBlueLeaf/Laplace-scheduler
+  #   subfolder: laplace-1_0-cut-head
+  #   # pretrained_model_name_or_path: stabilityai/stable-diffusion-xl-base-1.0
+  #   # subfolder: scheduler
+
+  # vae_std: 13.3
+  # vae_mean: 1.125
+
+
+model_config:
+
+  unet:
+    _target_: diffusers.UNet2DConditionModel.from_pretrained
+    _load_config_:
+      device: cuda
+      precision: torch.float16
+      to_freeze: true
+      # ckpt_path: checkpoints/qdzv3riudt-epoch=0-step=2000.ckpt
+      # ckpt_path: checkpoints/3bw72n5ynm-epoch=4-step=9378.ckpt
+      # ckpt_path: checkpoints/6wiuzzen5q-epoch=1-step=15000.ckpt
+      # state_dict_key: state_dict
+      # state_dict_prefix: unet.
+    pretrained_model_name_or_path: stabilityai/stable-diffusion-xl-base-1.0
+    subfolder: unet
+
+  te:
+    _target_: duwu.modules.text_encoders.ConcatTextEncoders
+    _load_config_:
+      device: cuda
+      precision: torch.float16
+      to_freeze: true
+    tokenizers:
+    - openai/clip-vit-large-patch14
+    - laion/CLIP-ViT-bigG-14-laion2B-39B-b160k
+    text_model_and_configs:
+    - 
+      - _target_: transformers.CLIPTextModel.from_pretrained
+        pretrained_model_name_or_path: stabilityai/stable-diffusion-xl-base-1.0
+        subfolder: text_encoder
+      - disable_autocast: false
+        concat_bucket: 0
+        use_pooled: false
+        need_mask: false
+        layer_idx: -2
+    - 
+      - _target_: transformers.CLIPTextModel.from_pretrained
+        pretrained_model_name_or_path: stabilityai/stable-diffusion-xl-base-1.0
+        subfolder: text_encoder_2
+      - disable_autocast: false
+        concat_bucket: 0
+        use_pooled: true
+        need_mask: false
+        layer_idx: -2
+    zero_for_padding: false
+
+  vae:
+    _target_: diffusers.AutoencoderKL.from_pretrained
+    _load_config_:
+      device: cuda
+      precision: torch.float16
+      to_freeze: true
+    pretrained_model_name_or_path: madebyollin/sdxl-vae-fp16-fix

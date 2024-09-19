@@ -1,0 +1,45 @@
+generated_image_dir: sampling_output/i4scpi3zrx-epoch=3-step=30000/
+
+metrics:
+  - name: CLIP score
+    metric_func:
+      _target_: duwu.metrics.compute_clip_score
+      _partial_: true
+      model_name_or_path: apple/DFN5B-CLIP-ViT-H-14-378
+      batch_size: 128
+      # Set to True because tensor is in range [0, 1] after T.ToTensor()
+      normalize: true
+    generated_dataset_func:
+      _target_: duwu.data.text_image_local.LocalTextImageDataset
+      _partial_: true
+      image_transform:
+        _target_: torchvision.transforms.Compose
+        transforms:
+          - _target_: torchvision.transforms.Resize
+            size: [378, 378]
+          - _target_: torchvision.transforms.ToTensor
+
+  - name: FID
+    metric_func:
+      _target_: duwu.metrics.compute_fid
+      _partial_: true
+      batch_size: 1024
+      normalize: true
+    generated_dataset_func:
+      _target_: duwu.data.text_image_local.LocalImageDataset
+      _partial_: true
+      image_transform:
+        _target_: torchvision.transforms.Compose
+        transforms:
+          - _target_: torchvision.transforms.Resize
+            size: [299, 299]
+          - _target_: torchvision.transforms.ToTensor
+    ref_dataset:
+      _target_: duwu.data.text_image_local.LocalImageDatasetFromFolder
+      image_dir: /mnt/datasets/cc12m_00002/
+      image_transform:
+        _target_: torchvision.transforms.Compose
+        transforms:
+          - _target_: torchvision.transforms.Resize
+            size: [299, 299]
+          - _target_: torchvision.transforms.ToTensor
